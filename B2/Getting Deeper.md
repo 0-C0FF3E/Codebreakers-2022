@@ -4,40 +4,32 @@ Analyze the backend site, and find the URL to the login page.
 
 _Hint: this group seems a bit sloppy. They might be exposing more than they intend to._
 
----
-
 **Warning:** Forced-browsing tools, such as DirBuster, are unlikely to be very helpful for this challenge, and may get your IP address automatically blocked by AWS as a DDoS-prevention measure. Codebreaker has no control over this blocking, so we suggest not attempting to use these techniques.
 
 Prompt:
 -   Enter the URL for the login page
 
-```
+---
+
 This was a tricky one as there really was not much to go off of.  Nothing in the developer tools immediately gave anything away for the site, so I fired up BurpSuite to check and see if anything was out of the ordinary.
 
 When we do the initial request, we get a single clue to how the backend is running -- The X-Git-Commit-Hash header in the response:
-```
 
-![[Pasted image 20221116221039.png|center]]
+![](B2/Files/Pasted%20image%2020221116221039.png)
 
-```
 The presence of this header would seem to indicate that the server is using a Git repo in its development.  We can test for this by attempting to access .git as a folder item since all git repos have this folder that contains all the content and history for that repo.
 
 Where before we were getting "Unauthorized", we now get a "Directory Listing Disabled" error.  This would imply that the folder does exist on the server and we should try to enumerate it.
-```
 
-![[Pasted image 20221117122755.png|center]]
+![](B2/Files/Pasted%20image%2020221117122755.png)
 
-```
 This required some additional research to find out what the structure of the .git folder includes.  I was able to find this graphical representation of a normal .git folder and how things are linked together.
-```
 
-![[Git Folder Internals.png|center|center|700]]
+![](B2/Files/Git%20Folder%20Internals.png)
 
-```
 Starting with the /.git/index file, we see that we are able to download the file.  However this appears to be a mix of ASCII and Byte Data.  In order to make sense of this file an additional tool was used called "gin" (https://github.com/sbp/gin)
 
 We can then point this tool to the downloaded index file and find much more detail about what is in the repo (NOTE: Some output was trimmed to cleanup this writeup):
-```
 
 ```
 ┌──(kali㉿kali)-[/writeups/NSA Codebreakers/B2/Files]
@@ -141,20 +133,18 @@ We can then point this tool to the downloaded index file and find much more deta
   extension = 1
   signature = TREE
   size = 90
-  data = "\u000019 1\n\u0095\u009f8G2\u001e\u000f\u0081\u000b\u0004\u001f3l\u0085\r\u00b6\r\u0094\u00cd~app\u000016 1\nn\u0003\u0085\u008e\u001d\u00e5\u00cc$\u0007E>M\u00fb\u008bec\u00f8\u00e2\u00bcUtemplates\u000013 0\n\u00b7L\u0007\u00f2\u00fa#\u00cf\u00fe\u0019\u00ef\u008a\u00f2\u0011\u00a8 \u00f2`\u0094\u00a5;"
-```
-
+  data = "\u000019 1\n\u0095\u009f8G2\u001e\u000f\u0081\u000b\u0004
+          \u001f3l\u0085\r\u00b6\r\u0094\u00cd~app\u000016 1\nn\u0003
+	  \u0085\u008e\u001d\u00e5\u00cc$\u0007E>M\u00fb\u008bec\u00f8
+	  \u00e2\u00bcUtemplates\u000013 0\n\u00b7L\u0007\u00f2\u00fa#
+	  \u00cf\u00fe\u0019\u00ef\u008a\u00f2\u0011\u00a8 \u00f2`\u0094\u00a5;"
 ```
 Now we have the names of the files and folders and their associated hashes.  These are all objects in the git repo, however, if we attempt to go to these hashes in the objects folder (/.git/objects/HASH) we get a Not Found.
 
 More research was then needed to figure out how these hashes are used in Git
-```
 
-<div align="center">
-<iframe width="400" height="275" src="https://www.youtube.com/embed/ADvD-DfSTSU" title="The Definitive Deep Dive into the .git Folder | Rob Richardson | Conf42 Python 2021" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</div>
+[![](https://img.youtube.com/vi/ADvD-DfSTSU/0.jpg)](https://youtu.be/ADvD-DfSTSU)
 
-```
 This video explains how to recsontruct a GIT repo from the .git folder -- While it is long, its very detailed and I highly recommend watching the whole thing.
 
 We learn that all objects are put into additional folders based on their hashes.
@@ -163,7 +153,6 @@ We learn that all objects are put into additional folders based on their hashes.
 Now that we know how to access the default files, and the objects, let's re-create the git repo locally by pulling down all the files that we can.
 
 Once that is done, we can use the git cat-file command explained in this video to rebuild all the files from their blobs/trees.
-```
 
 ```sh
 mkdir .git
@@ -173,12 +162,9 @@ mkdir logs
 mkdir objects
 mkdir refs
 ```
-
-```
 Using the earlier image, we can start pulling down all of those files and placing them in their respective directories.  Once this is done, we can now start by pulling the blobs/trees found in the intial commit hash and store them in their appropriate folders.
 
 The final directory listing of the .git folder looked like this:
-```
 
 ```
 \---.git
@@ -262,11 +248,11 @@ The final directory listing of the .git folder looked like this:
                 main
 ```
 
-```
 Next we need to decode the last bit of data from the TREE data that was encoded as Unicode  (CyberChef:  Unescape String --> To Hex):
 
 If we use the \n markers as delimiters we end up with the following additional hashes for the tree objects
 
+```
 \u000019\n
 \u0095\u009f8G2\u001e\u000f\u0081\u000b\u0004\u001f3l\u0085\r\u00b6\r\u0094\u00cd~
 	--> 959f3847321e0f810b041f336c850db60d94cd7e
@@ -278,10 +264,12 @@ n\u0003\u0085\u008e\u001d\u00e5\u00cc$\u0007E>M\u00fb\u008bec\u00f8\u00e2\u00bcU
 templates\u000013 0\n
 \u00b7L\u0007\u00f2\u00fa#\u00cf\u00fe\u0019\u00ef\u008a\u00f2\u0011\u00a8 \u00f2`\u0094\u00a5;
 	--> b74c07f2fa23cffe19ef8af211a820f26094a53b
+```
 
 Let's add those hashes to our .git folder structure.  Now that we have those TREE hashes, we can use git cat-file -p HASH on those hashes to see what each tree contains.
 When complete we end up with the following files/hashes from the server:
 
+```
 Trees:
 git cat-file -p 959f38 (/)
     100755 blob fc46c46e55ad48869f4b91c2ec8756e92cc01057    Dockerfile
@@ -308,11 +296,9 @@ git cat-file -p b74c07 (/app/templates)
     100644 blob c980bf6f5591c4ad404088a6004b69c412f0fb8f    unlock.html
     100644 blob 470d7db1c7dcfa3f36b0a16f2a9eec2aa124407a    userinfo.html
 ```
-
-
-```
 All of these files are able to be reconstructed using the git cat-file -p HASH command and piping that output to the appropiate folder/file.  When we are done we end up with the following file structure:
 
+```
 \---serverData
     |   Dockerfile
     |   Pipfile
@@ -339,15 +325,13 @@ All of these files are able to be reconstructed using the git cat-file -p HASH c
                 userinfo.html
 ```
 
-```
 Now we can finally move forward.  Within the app/server.py file we are able to find the following information about how the server actually works:
-```
 
 ```python
 def expected_pathkey():
 	return "etvdmxhpgpvdweyg"
 
-...ADDTL CODE...
+# ...ADDTL CODE...
 
 @app.route("/", defaults={'pathkey': '', 'path': ''}, methods=['GET', 'POST'])
 @app.route("/<path:pathkey>", defaults={'path': ''}, methods=['GET', 'POST'])
@@ -362,17 +346,14 @@ def pathkey_route(pathkey, path):
 	if pathkey != expected_pathkey():
 		return render_template('unauthorized.html'), 403
 ```
-
-```
 We see that if the path does not contain a pathkey, then we are sent the Unauthorized page.  This tells us that we have to append /etvdmxhpgpvdweyg/ to our path to reach the actual html pages.  -- /etvdmxhpgpvdweyg/login
 
 When we browse to this, we find the login page~!
-```
 
-![[Pasted image 20221117125549.png|center]]
+![](/B2/Files/Pasted%20image%2020221117125549.png)
 
 ```
 Answer: https://ukzcouspczgmbzmx.ransommethis.net/etvdmxhpgpvdweyg/login
 ```
 
-![[badgeb2.png|center|400]]
+![](/B2/Files/badgeb2.png)
