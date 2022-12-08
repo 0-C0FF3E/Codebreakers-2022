@@ -7,7 +7,7 @@ Analyze the demand site, and see if you can find a connection to another ransomw
 Prompt:
 -   Enter the domain name of the associated site.
 
-![[YOUR_FILES_ARE_SAFE.txt]]
+![YOUR_FILES_ARE_SAFE.txt](/B1/Files/YOUR_FILES_ARE_SAFE.txt)
 
 ```
 Let's start with analyzing what we have -- the txt file:
@@ -20,14 +20,14 @@ Visit https://txlwuygwxgbvajzp.unlockmyfiles.biz/ to find out how to recover the
 Since we don't have much else to go on, lets visit the site and see what we find:
 ```
 
-![[Pasted image 20221116205658.png|center]]
+![](/B1/Files/Pasted%20image%2020221116205658.png)
 
 ```
 There isn't much more to go off of at face value, however we should look into the source code and see if there is anything else.
 Within the site content, we see a connect.js script, however it appears to be highly obfuscated.
 ```
 
-![[Pasted image 20221116211005.png|center]]
+![](/B1/Files/Pasted%20image%2020221116211005.png)
 
 
 ```
@@ -38,16 +38,16 @@ When we reload the page, we find that there is indeed something different here. 
 https://ukzcouspczgmbzmx.ransommethis.net/demand?cid=95876
 ```
 
-![[Pasted image 20221101202041.png]]
+![](/B1/Files/Pasted%20image%2020221101202041)
 
 ```
 It is technically a subdomain, but its different than the rest of the site.  If we visit the domain we get an Unauthorized message, but the footer lets us know that this is indeed part of the challenge.
 ```
 
-![[Pasted image 20221116220423.png|center]]
+![](/B1/Files/Pasted%20image%2020221116220423.png)
 
 ```
 Answer: ukzcouspczgmbzmx.ransommethis.net
 ```
 
-![[badgeb1.png|center|400]]
+![](/B1/Files/badgeb1.png)
