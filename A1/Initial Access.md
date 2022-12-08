@@ -46,6 +46,8 @@ Eventually we run across a single user who has two logins on the same day, but t
 
 There was a login at 09:50 and they logged out at 15:22 -- However during that same window of time, there was another login at 10:47~!  This means two people were logged into the same account at the same time.
 
+```
 Answer: Michael.L
+```
 
 ![](/A1/Files/badgea1.png)
