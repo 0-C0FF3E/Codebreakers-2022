@@ -9,6 +9,7 @@ Prompt:
 ---
 
 There is one key analysis tool that is needed for this -- Excel.
+
 If we import the file as a CSV, we get clean columns.  The next part involves looking at two specific columns:  The Start Time and Duration.
 
 We first need to split the column with the timestamp such that we have the date in column and the HH:MM:SS in another column.  Insert 3 columns to the right of the timestamp (for Date, Time, Timezone) then use the "Text to Columns" button on the Data tab to accomplish this:
@@ -20,15 +21,19 @@ We first need to split the column with the timestamp such that we have the date 
 Duration appears to be the number of seconds that the user was logged in.  We can use that knowledge to add some columns and calculate the actual end times.
 
 To the right of DURATION we will add a column with the formula of:
+```
 	=([@Duration]/60)/60
+```
 This will give us the number of hours that someone was logged in.
 
 We then can make another column to convert those decimal values into actual time values:
+```
 	=[@Hours]/24
-
+```
 Finally, to the right of the time column (HH:MM:SS), we will add one more column to calcuate the end time:
+```
 	=[@Time]+[@RealHours]
-
+```
 With all of these columns setup, we now can see Start + End times
 
 ![](/A1/Files/Pasted%20image%2020221116184145.png)
