@@ -4,6 +4,12 @@ Writeups from the 2022 NSA Codebreakers CTF Challenge
 * All associated files should be able to be located in their respective Files folder for each task
 * If you prefer, this entire writeup can be found in the PDF file for easy access/download ![PDF File](/2022-NSA-Codebreaker-Walkthrough.pdf)
   * Note: Associated Challenge Files are not included with the PDF
+<details><summary>If you have questions, find broken links or images, etc.. feel free to reach out</summary>
+
+```
+1nt3rc3pt0r#2961
+```
+</details>
 
 ### Table of Contents:
 * ![Task A1 - Initial Access](/A1/Initial%20Access.md)
