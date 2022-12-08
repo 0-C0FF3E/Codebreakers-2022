@@ -6,6 +6,8 @@ Prompt:
 
 Enter the value recovered from the file
 
+![important_data.pdf.enc](/T9/Files/important_data.pdf.enc)
+
 ---
 
 This one stumped me for a good while.  It took lots of repeated stepping through the program to figure out what was happening.  The first step was to figure out just how the encryption key was being generated.
