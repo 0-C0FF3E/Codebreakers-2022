@@ -5,11 +5,11 @@ It still doesn't look like we're able to find the key to recover the victim's fi
 Prompt:
 -   Enter the base64-encoded value of the key-encrypting-key
 
-```
+---
+
 Looks like we need to investigate the source code more thoroughly again and see how the database is being interacted with.
 
 Within the server.py file we see that logs are created in lock() :
-```
 
 ```python
 def lock():
@@ -34,11 +34,9 @@ def lock():
 		return jsonify({'key': jsonresult['plainKey'], 'cid': cid})
 ```
 
-```
 So, anytime ransom is demanded, the logs for that transaction are stored in a file /opt/ransommethis/log/keygeneration.log
 
 There is also an endpoint that on the site called fetchlog() -- If we look at the function we can request access to this log using the ?log= parameter:
-```
 
 ```python
 def fetchlog():
@@ -61,46 +59,41 @@ https://ukzcouspczgmbzmx.ransommethis.net/etvdmxhpgpvdweyg/fetchlog?log=keygener
 2022-05-29T14:53:56-05:00	SuperLogistics	    17962	5.711
 ```
 
-```
 Since it appears that there is no sanitation on what is gathered from this endpoint, we can also do some directory traversal to obtain a copy of what appears to be the binary file that is used in the lock()/unlock() endpoints.
 
 We see the following path for the key generating tool:
+
 /opt/keyMaster/keyMaster
 
 And the default log path is:
+
 /opt/ransommethis/log/
 
 So we need to go up 2 folders and then down to keyMaster:
+
 ?log=../../keyMaster/keyMaster
 
 ...and now we have the binary file associated with this servers key generation!
-```
 
-![[keyMaster]]
+![keyMaster](/T8/Files/keyMaster)
 
-```
+
 Fun side note:  If you just go up to /opt/  (?log=../../) You get a fun little message:
-```
 
-![[Pasted image 20221109144930.png|center|500]]
+![](/T8/Files/Pasted%20image%2020221109144930.png)
 
-```
 We can also pull down full copies of the databases (/opt/ransommethis/db/user.db and /opt/ransommethis/db/victims.db).  Both of these file paths are found in the util.py file
 
 Let's start by peeking through the databases and see what we find.  While perhaps not useful right away, we can finally see the pwhash of the users now.  We can also verify that we had the correct information from the output of sqlmap (see bonus info at end of Task 8)
-```
 
-![[Pasted image 20221117220647.png|center]]
+![](/T8/Files/Pasted%20image%2020221117220647.png)
 
-```
 The victims DB only has one table: cid, dueDate, Baddress, pAmount -- Without further information about how the data in this table is used, we will likely need to look into the binary file.  Nothing from these databases is giving us a clue about how keys are generated.
-```
 
-![[Pasted image 20221109150349.png|center|400]]
+![](/T8/Files/Pasted%20image%2020221109150349.png)
 
-```
 Just based on the server.py file we can tell what some of the arguments are in binary program:
-
+```
 $ keyMaster lock RNG DEMAND HACKERNAME
 $ keyMaster unlock RECEIPT
 $ keyMaster credit HACKERNAME CREDIT RECEIPT
@@ -110,34 +103,29 @@ HACKER = Hacker Username (STR)
 CREDIT = Amount (FLOAT)
 DEMAND = Amount (FLOAT)
 RECEIPT = ?
-
+```
 Since the website doesn't seem to report or respond with anything relating to the receipt or the key-encrypting-keys, it's time to do some reverse engineering....
-```
 
-
-```
 Running strings, we find some things of interest:
 
 First is the presence of several .go files which means this was likely programmed with GoLang:
 
-Strings Output:
-...
+```
+One Line from Strings Output:
 /generator/cmd/keyMaster/main.go
-...
-
+```
 Next is that we see several hard-coded strings for SQL:
-
+```sql
 INSERT INTO customers (customerId, encryptedKey, expectedPayment, hackerName, creationDate) VALUES (?, ?, ?, ?, ?)
 SELECT encryptedKey, expectedPayment FROM customers WHERE customerId = ?
-
+```
 We can see that there is another customers table.  If we hunt through the strings more we also find a few instances of keyMaster --- Taking this and using grep we see one particular string of interest:
 
 ./keyMaster.db
 
 If we go back to the fetchlog() function in the website, we can try and request this database... and it works (and maps to the INSERT query from above)
-```
 
-![[Pasted image 20221207124135.png|center]]
+![](/T8/Files/Pasted%20image%2020221207124135.png)
 
 ```
 customerID: INT
@@ -145,47 +133,37 @@ encryptedKey: BASE64 Encoded String
 expectedPayment: FLOAT
 hackerName: STR
 creationDate: STR
-
+```
 Decoding the encryptedKey gives us gibberish -- Based on the prompt, it sounds like this is the decryption key, but its been encryped with the key-encrypting-key and base64 encoded.
-```
 
-```
 When reversing go binaries, we need to located the main.main() function as this is the actual start point of the program data.  If we follow the instruction flow, we see that the command line argument is parsed in pieces that lead to the functions associated with LOCK, UNLOCK, CREDIT, etc..
-```
 
-![[Pasted image 20221207124547.png|center]]
+![](/T8/Files/Pasted%20image%2020221207124547.png)
 
-```
 After verifying the remaining command line arguments, we see that a function is called to generate a UUID value.  UUID values are based on the current time, down to the microsend.
-```
 
-![[Pasted image 20221207124734.png|center]]
+![](/T8/Files/Pasted%20image%2020221207124734.png)
 
-```
 We then see that the values are all saved, presumably as input values for the encryption key that is actually used.  Then this information is passed into another function which I have named "encrypt_1":
-```
 
-![[Pasted image 20221207124924.png|center]]
+![](/T8/Files/Pasted%20image%2020221207124924.png)
 
-![[Pasted image 20221207124959.png|center]]
+![](/T8/Files/Pasted%20image%2020221207124959.png)
 
-```
 After stepping through "encrypt_1", I was able to derive the key.  It appears to be derived from a hard-coded value in the binary.  The magic happens around here:
-```
 
-![[Pasted image 20221113123258.png|center]]
+![](/T8/Files/Pasted%20image%2020221113123258.png)
 
-```
 The gen_new_sha256_key() generates the key at runtime.  It takes a hardcoded base64 string from the program, decodes that into bytes:
-
+```
 Base64: 0MJ7bUsqs5Yb65fgfQojSYudPhz+mX9632kc2m6JIeI=
 Bytes:  d0c27b6d4b2ab3961beb97e07d0a23498b9d3e1cfe997f7adf691cda6e8921e2
 ```
 
-![[Pasted image 20221113125333.png|center]]
+![](/T8/Files/Pasted%20image%2020221113125333.png)
 
-```
 Another hard-coded chunk of data is then built out (88 Bytes in Size):
+```
 0xc00007e0c0:   0x32    0xfb    0xfc    0x2b    0x08    0x1e    0xe5    0xc9
 0xc00007e0c8:   0x32    0x0e    0xb1    0x71    0x85    0x96    0xa7    0x1d
 0xc00007e0d0:   0xfc    0xd4    0x4b    0x1e    0x28    0xeb    0xef    0x02
@@ -199,27 +177,27 @@ Another hard-coded chunk of data is then built out (88 Bytes in Size):
 0xc00007e110:   0x68    0x91    0xe9    0x59    0x2c    0xb0    0x20    0xf5
 
 32fbfc081ee5c9320eb18596a71dfcd44b28ebef022eb36993ba2fcdfe4b3193af5317ba67f8c32df6e1740b2cd15926b264baa001cefd5e3e12e44e258470acbeddc3aa25736891e92cb020f5
-
+```
 Again another smaller block of data is then pulled from the stack
+```
 0x85d660:       0x64    0x8f    0x98    0x13    0x44    0x5f    0xa6    0x98
 0x85d668:       0x61    0x5f    0xd7    0x1d    0xc8    0xe7    0x8c    0x00
 
 64af8f9813445fa698615fd71dc8e78c
-
+```
 Each byte of the smaller version is then XOR'd with each byte of the longer version.
-```
 
-![[Pasted image 20221113125412.png|center]]
+![](/T8/Files/Pasted%20image%2020221113125412.png)
 
-```
 This repeats until the full block is decoded into this Base64 string:
 
+```
 Vtd8LACQSQflMq+ysLXZwMwcqdtwt6KBfXu/572Hmz0mOIyygOs4I8yeyrG0eAeMzMBC/zSmdYQNL26777q8sg==
-
-This is then used as the password into the AES Key generating algorithm:
 ```
 
-![[Pasted image 20221113125658.png|center]]
+This is then used as the password into the AES Key generating algorithm:
+
+![](/T8/Files/Pasted%20image%2020221113125658.png)
 
 ```
 	pbkdf2.Key(password,salt,4096,32,sha256.New)
@@ -228,12 +206,12 @@ This is then used as the password into the AES Key generating algorithm:
 	Iter = 4096
 	KeyLen = 32
 	Hash = SHA256
-
-This then puts out the value in RAX of:
-2aa91ae6a1669eeeb3cc71fb4f60990ffd7d70de172b68f7269ef3a776911ec1
-
-This is then used as input into crypto_aes_NewCipher.  From the documentation for this function we see that one of the arguments is the encrypting key:
 ```
+This then puts out the value in RAX of:
+```
+2aa91ae6a1669eeeb3cc71fb4f60990ffd7d70de172b68f7269ef3a776911ec1
+```
+This is then used as input into crypto_aes_NewCipher.  From the documentation for this function we see that one of the arguments is the encrypting key:
 
 ```
 func NewCipher(key []byte) (cipher.Block, error)
@@ -242,31 +220,27 @@ NewCipher creates and returns a new cipher.Block.
 The key argument should be the AES key, either 16, 24, or 32 bytes to select AES-128, AES-192, or AES-256.
 ```
 
-```
 Following this is the gold (hence the yellow background!) where the randomly generated encryption keys are created and then encrypted.
-```
 
-![[Pasted image 20221207130112.png|center]]
+![](/T8/Files/Pasted%20image%2020221207130112.png)
 
-```
 This confirms that the above value returned in RAX from the XOR'd key value is indeed the key-encrypting-key!  That key is used to create a new cipher block where the client's encryption key is generated and encrypted again to be stored in the database.
 
 We then need to take the byte-data of that key-encrypting-key and Base64 encode that.  When done we end up with:
 
+```
 Kqka5qFmnu6zzHH7T2CZD/19cN4XK2j3Jp7zp3aRHsE=
+```
 
 When submitting this value, we find that we were indeed correct!
-```
 
-![[badge8.png|center|400]]
-
+![](/T8/Files/badge8.png)
 
 #### *BONUS: Random Bits of Info*
-```
+
 Additional Scratch-Paper Notes below on how input data is being used -- I kept these notes and am glad that I did as this came into play during the last task!  I'll leave them here since this was part of the work that I did during this task.
 
 Namely, this follows HOW the client encryption key is being generated from the UUID value when requesting a new encryption key from the server and then stored in the databases.
-```
 
 ```
 UUID:
@@ -350,6 +324,3 @@ $R11
     Time    2022-11-11T11:09:58-08:00
     len(^)  25
 ```
-
-
-
