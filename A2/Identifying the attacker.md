@@ -52,6 +52,8 @@ If we open the tools.rar file with 7zip, we are able to see user/group informati
 
 ![](/A2/Files/Pasted%20image%2020221116205115.png)
 
+```
 Answer: TenseSulkyPush
+```
 
 ![](/A2/Files/badgea2.png)
