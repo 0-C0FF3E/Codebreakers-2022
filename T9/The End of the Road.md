@@ -4,7 +4,7 @@ There's one last shred of hope: your cryptanalysis skills. We've given you one o
 
 Prompt:
 
-Enter the value recovered from the file
+* Enter the value recovered from the file
 
 ![important_data.pdf.enc](/T9/Files/important_data.pdf.enc)
 
