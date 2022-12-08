@@ -21,7 +21,9 @@ If we import this in the TLS settings, we are able to see an important packet:
 
 So we know that the tools.rar must be the tools that were transferred over.  However, we are still unable to see the raw file data in Wireshark.  We need to do some extra work on this capture to be able to see the traffic.
 
-While I am sure there is probably a way to get this going properly within Wireshark, I opted for a different path using a tool called ssldump -- This should come standard with Kali, but can also be downloaded in a tarball from here: https://ssldump.sourceforge.net/
+While I am sure there is probably a way to get this going properly within Wireshark, I opted for a different path using a tool called ssldump -- This should come standard with Kali, but can also be downloaded in a tarball from here:
+
+https://ssldump.sourceforge.net/
 
 The first step is to isolate just the Private Key into its own file.  Just copy the private key out of the .cert.pem file and put it into priv.key
 
