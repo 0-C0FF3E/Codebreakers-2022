@@ -11,15 +11,14 @@ Prompt:
 
 ![session.pcap](/A2/Files/session.pcap)
 
-```
+---
+
 The PCAP contains nothing but encrypted data.  So without the proper RSA key, we will not be able to make any use of this.  However, in the root.tar.bz file, we find that there is a .cert.pem file that contains an RSA Private Key + Certificate.
 
 If we import this in the TLS settings, we are able to see an important packet:
-```
 
 ![](/A2/Files/Pasted%20image%2020221116203424.png)
 
-```
 So we know that the tools.rar must be the tools that were transferred over.  However, we are still unable to see the raw file data in Wireshark.  We need to do some extra work on this capture to be able to see the traffic.
 
 While I am sure there is probably a way to get this going properly within Wireshark, I opted for a different path using a tool called ssldump -- This should come standard with Kali, but can also be downloaded in a tarball from here: https://ssldump.sourceforge.net/
@@ -27,38 +26,30 @@ While I am sure there is probably a way to get this going properly within Wiresh
 The first step is to isolate just the Private Key into its own file.  Just copy the private key out of the .cert.pem file and put it into priv.key
 
 Then we can use ssldump with the following options:
+```
 	-k   Specifies the Private Key
 	-r   Read from a PCAP file
 	-d   Decrypt the data using the key
 	-n   Don't resolve hostnames
 	-w   Write to an output file
 ```
-
 ```
 ┌──(kali㉿kali)-[/writeups/NSA Codebreakers/A2/Files]
 └─$ ssldump -k ./priv.key -r session.pcap -dnw decrypt.pcap
 ```
 
-```
 Opening this new decrypt.pcap file, we can now see that there are no more TLS packets in the list.  It was all stripped away during the decryption from ssldump.  Also, at the end of the capture, we can now see the HTTP 200 OK Packet which helps confirm that the traffic was decrypted as this was not available to us in the original capture.
-```
 
 ![](/A2/Files/Pasted%20image%2020221116204810.png)
 
-```
 From here, we can now use HTTP Object Export (File > Export Objects > HTTP) and extract the tools.rar file that we need.
-```
 
 ![](/A2/Files/Pasted%20image%2020221116204918.png)
 
-```
-If we open the tools.rar file with 7zip, we are able to see user/group information of the person that created the tools.rar file --- presumably also the same person that created them:
-```
+If we open the tools.rar file with 7zip, we are able to see user/group information of the person that created the tools.rar file -- presumably also the same person that created them:
 
 ![](/A2/Files/Pasted%20image%2020221116205115.png)
 
-```
 Answer: TenseSulkyPush
-```
 
 ![](/A2/Files/badgea2.png)
